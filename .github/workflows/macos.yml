@@ -1,4 +1,4 @@
-name: Build macOS arm64 runtime
+name: macOS build
 on:
   push:
     branches: [ main ]
@@ -21,5 +21,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PathOfBuilding-PoE2-macos-arm64
-          path: dist/macos-arm64/PathOfBuilding-PoE2-macos-arm64.zip
+          path: |
+            dist/macos-arm64/PathOfBuilding-PoE2-macos-arm64.zip
+            dist/macos-arm64/PathOfBuilding-PoE2-macos-arm64.zip.sha256
 
