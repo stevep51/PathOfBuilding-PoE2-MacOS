@@ -1,6 +1,6 @@
 name: Accuracy bug report
 description: Create a bug report to help us fix incorrect wording in Path of Building for PoE2.
-labels: ["bug:accuracy"]
+labels: [bug, upstream]
 body:
   - type: markdown
     attributes:
