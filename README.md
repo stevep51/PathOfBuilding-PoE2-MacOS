@@ -10,12 +10,15 @@ This is a **native macOS (Apple Silicon) port** of [Path of Building Community f
 
 It keeps the original Lua application and the entire calculation engine **unchanged** — every offence/defence calculation, the passive tree, items, skills and import/export logic are identical to the upstream project. Only the Windows-only SimpleGraphic runtime has been replaced with a native macOS host (SDL3 + LuaJIT + a bitmap font/DDS renderer), so it runs as a real `.app` instead of through Wine/CrossOver or the Windows `.exe`.
 
+## ⬇️ Download
+**[Download the latest release](https://github.com/stevep51/PathOfBuilding-PoE2-MacOS/releases/latest)** — grab `PathOfBuilding-PoE2-macos-arm64.zip` from the assets, unzip, and move **Path of Building (PoE2).app** to your Applications folder. See [Install](#install) below for the first-launch (Gatekeeper) step.
+
 ## Requirements
 - Apple Silicon Mac (arm64)
 - macOS 13 (Ventura) or newer
 
 ## Install
-Download the latest `PathOfBuilding-PoE2-macos-arm64.zip` from the Releases page, unzip it, and move **Path of Building (PoE2).app** to your Applications folder. On first launch, macOS Gatekeeper may require you to right‑click the app and choose **Open** (it is not notarized).
+Download the latest `PathOfBuilding-PoE2-macos-arm64.zip` from the [Releases page](https://github.com/stevep51/PathOfBuilding-PoE2-MacOS/releases/latest), unzip it, and move **Path of Building (PoE2).app** to your Applications folder. On first launch, macOS Gatekeeper may require you to right‑click the app and choose **Open** (it is not notarized).
 
 Your builds and settings are stored under:
 `~/Library/Application Support/Path of Building (PoE2)/`
