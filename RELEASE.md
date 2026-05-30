@@ -120,7 +120,23 @@ is bundled. Do **not** invent an independent version (e.g. `1.0.0`).
 
 Prerequisites (via Homebrew): `cmake ninja sdl3 luajit curl zlib zstd`.
 
-Steps:
+### Automated release (recommended)
+
+Pushing a version tag matching `v*-macos.*` triggers the **macOS release**
+workflow (`.github/workflows/macos-release.yml`), which builds and packages the
+app on an Apple Silicon runner and publishes the `.zip` + `.zip.sha256` to a new
+GitHub Release with install/verify notes:
+
+```bash
+# after bumping the version fields below and merging to main:
+git tag v0.16.0-macos.1
+git push origin v0.16.0-macos.1
+```
+
+You can also run it manually from the Actions tab against an existing tag. The
+manual steps below remain available if you prefer to build/upload locally.
+
+Steps (manual):
 1. Set the versions:
    - **Engine version** (only when rebasing onto new upstream): `manifest.xml`
      (`<Version number="..."/>`) and `CFBundleShortVersionString` in
