@@ -1,11 +1,6 @@
 # Path of Building (PoE2) — Native macOS Port
 ## An offline build planner for Path of Exile 2, running natively on Apple Silicon macOS.
 
-<p float="middle">
-  <img alt="Tree tab" src="https://github.com/user-attachments/assets/225bf25f-1ac4-4639-b280-565a24d2a2fc" width="48%" />
-  <img alt="Items tab" src="https://github.com/user-attachments/assets/de8e6dc0-1e1a-46c5-b8a4-18877e67d48d" width="48%" />
-</p>
-
 This is a **native macOS (Apple Silicon) port** of [Path of Building Community for Path of Exile 2](https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2).
 
 It keeps the original Lua application and the entire calculation engine **unchanged** — every offence/defence calculation, the passive tree, items, skills and import/export logic are identical to the upstream project. Only the Windows-only SimpleGraphic runtime has been replaced with a native macOS host (SDL3 + LuaJIT + a bitmap font/DDS renderer), so it runs as a real `.app` instead of through Wine/CrossOver or the Windows `.exe`.
