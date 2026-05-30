@@ -1,10 +1,7 @@
 name: Push beta branch
-on: 
-  schedule:
-    - cron: '0 0 * * 5'
-  push:
-    branches:
-      - 'master'
+# Inherited from upstream; not used by this macOS port. Left as manual-only so it
+# does not run on a schedule (there is no `master`/beta branch in this repo).
+on:
   workflow_dispatch:
 jobs:
   push-beta:
