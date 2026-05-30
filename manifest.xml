@@ -1,11 +1,10 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <PoBVersion>
 	<Version number="0.16.0" />
-	<Source part="default" url="https://raw.githubusercontent.com/PathOfBuildingCommunity/PathOfBuilding-PoE2/{branch}/" />
-	<Source part="runtime" platform="win32" url="https://raw.githubusercontent.com/PathOfBuildingCommunity/PathOfBuilding-PoE2/{branch}/runtime/" />
-	<Source part="runtime-macos-arm64" platform="macos-arm64" url="https://raw.githubusercontent.com/PathOfBuildingCommunity/PathOfBuilding-PoE2/{branch}/runtime-macos-arm64/" />
-	<Source part="program" url="https://raw.githubusercontent.com/PathOfBuildingCommunity/PathOfBuilding-PoE2/{branch}/src/" />
-	<Source part="tree" url="https://raw.githubusercontent.com/PathOfBuildingCommunity/PathOfBuilding-PoE2/{branch}/src/" />
+	<Source part="default" url="https://raw.githubusercontent.com/stevep51/PathOfBuilding-PoE2-MacOS/main/" />
+	<Source part="runtime-macos-arm64" platform="macos-arm64" url="https://raw.githubusercontent.com/stevep51/PathOfBuilding-PoE2-MacOS/main/runtime-macos-arm64/" />
+	<Source part="program" url="https://raw.githubusercontent.com/stevep51/PathOfBuilding-PoE2-MacOS/main/src/" />
+	<Source part="tree" url="https://raw.githubusercontent.com/stevep51/PathOfBuilding-PoE2-MacOS/main/src/" />
 	<File name="changelog.txt" part="default" sha1="35bdfbe8aa28c1ff8b2c00173b302ea639a83888" />
 	<File name="help.txt" part="default" sha1="eb788d20352333fad99bcf6092306f0c3bca3122" />
 	<File name="LICENSE.md" part="default" sha1="e81bd01e60cdf8646f3308ec71fa0e8e638d544e" />

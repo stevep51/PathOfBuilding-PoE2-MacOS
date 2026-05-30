@@ -56,9 +56,13 @@ tools/macos/package_app.sh    # produces dist/macos-arm64/PathOfBuilding-PoE2-ma
 ```
 
 ## What's different from upstream
-- **Native macOS host** (`macos/`) replaces SimpleGraphic: SDL3 rendering with layer-correct draw ordering, a bitmap font renderer, DDS/TGA decoders, libcurl-backed downloads, a loopback OAuth server, and background sub-scripts.
-- The Windows runtime (`.exe`/`.dll`) has been removed; the shared Lua, fonts (`runtime/SimpleGraphic/Fonts`) and Lua libraries (`runtime/lua`) are retained.
-- Auto-update is disabled on macOS (there is no native updater yet); update via a new release download.
+The calculation engine, data, passive tree, skills, items and UI logic are **unchanged**. The changes below are what make it run natively on macOS:
+
+- **Native macOS host** (`macos/`) replaces the Windows-only SimpleGraphic runtime: a Cocoa + SDL3 window with layer-correct draw ordering, a bitmap font renderer, DDS/TGA texture decoders, libcurl-backed HTTPS downloads, a loopback OAuth sign-in server, and background sub-scripts. The app loads its bundled Lua from inside the `.app` (`Contents/Resources`), falling back to the source tree when run from a checkout.
+- **macOS-native conventions:** keyboard shortcuts use `Cmd` (e.g. `Cmd`+1–7 to switch tabs, `Cmd`+S to save, `` Cmd+` `` for the console), and user data is stored under `~/Library/Application Support/Path of Building (PoE2)/` instead of the Windows path.
+- **Windows runtime removed:** the `.exe`/`.dll` binaries are not shipped. Only the shared Lua sources, fonts (`runtime/SimpleGraphic/Fonts`) and Lua libraries (`runtime/lua`) are retained.
+- **Updates:** there is no in-app auto-updater on macOS. The **Check for Update** button instead opens the [Releases page](https://github.com/stevep51/PathOfBuilding-PoE2-MacOS/releases) so you can download the newest build, and each release ships a SHA-256 checksum to verify the download (see [SECURITY.md](SECURITY.md)). The **About** dialog links to this repository.
+- **Versioning:** releases keep the upstream engine version and add a macOS build counter (e.g. tag `v0.16.0-macos.1`), shown in-app as `Version: 0.16.0` above `macOS Port (build 1)`. See [RELEASE.md](RELEASE.md) for the scheme.
 
 ## Changelog
 You can find the full version history [here](CHANGELOG.md).

@@ -1,5 +1,13 @@
 # Changelog
 
+> This is the **upstream Path of Building Community (PoE2) engine changelog**,
+> retained so the in-app version history matches the bundled engine version.
+> It tracks calculation/data/UI changes from the
+> [upstream project](https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2),
+> **not** changes specific to this macOS port. For macOS-port changes (the native
+> host, build, packaging), see this repository's
+> [GitHub Releases](https://github.com/stevep51/PathOfBuilding-PoE2-MacOS/releases).
+
 ## [v0.16.0](https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2/tree/v0.16.0) (2026/05/30)
 
 [Full Changelog](https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2/compare/v0.15.0...v0.16.0)

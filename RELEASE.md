@@ -99,12 +99,34 @@ To do this follow steps 1-5 the same and choose the other option for step 6.
 The native macOS app is built and packaged from this repository — no installer
 repo or NSIS is involved.
 
+### Versioning
+
+This port keeps the **upstream Path of Building engine version** as its base and
+adds a port-specific build counter, so it is always clear which upstream engine
+is bundled. Do **not** invent an independent version (e.g. `1.0.0`).
+
+- **Engine version** = upstream's version (currently `0.16.0`). This is the value
+  in `manifest.xml` (`<Version number="..."/>`) and in `CFBundleShortVersionString`
+  (`macos/Info.plist.in`). Only changes when you rebase onto a new upstream release.
+- **Port build counter** = a number you own, for macOS-host / packaging / bug-fix
+  releases that share the same engine version. It lives in two places that must
+  stay in sync:
+  - `CFBundleVersion` in `macos/Info.plist.in` (macOS requires this to increase), and
+  - `macPortBuild` near the top of `src/Modules/Main.lua` (drives the in-app
+    version display).
+- **Release tags** combine the two: `v0.16.0-macos.1`, `v0.16.0-macos.2`, …
+  After a rebase onto upstream `0.17.0`, reset the counter: `v0.17.0-macos.1`.
+- The app shows both, e.g. `Version: 0.16.0 — macOS port build 1`.
+
 Prerequisites (via Homebrew): `cmake ninja sdl3 luajit curl zlib zstd`.
 
 Steps:
-1. Bump the version in `manifest.xml` (`<Version number="..."/>`) and, to keep the
-   bundle metadata in sync, in `macos/Info.plist.in` (`CFBundleShortVersionString`
-   / `CFBundleVersion`).
+1. Set the versions:
+   - **Engine version** (only when rebasing onto new upstream): `manifest.xml`
+     (`<Version number="..."/>`) and `CFBundleShortVersionString` in
+     `macos/Info.plist.in`.
+   - **Port build counter** (every port release): bump `CFBundleVersion` in
+     `macos/Info.plist.in` **and** `macPortBuild` in `src/Modules/Main.lua`.
 2. Build and package:
 
        tools/macos/package_app.sh
