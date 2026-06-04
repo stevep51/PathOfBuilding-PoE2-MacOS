@@ -1718,6 +1718,7 @@ void Host::registerApi() {
     registerFunction(L, "GetDPIScaleOverridePercent", l_GetDPIScaleOverridePercent);
     registerFunction(L, "SetDPIScaleOverridePercent", l_SetDPIScaleOverridePercent);
     registerFunction(L, "SetDrawColor", l_SetDrawColor);
+    registerFunction(L, "GetDrawColor", l_GetDrawColor);
     registerFunction(L, "SetDrawLayer", l_SetDrawLayer);
     registerFunction(L, "SetViewport", l_SetViewport);
     registerFunction(L, "DrawImage", l_DrawImage);
@@ -1853,6 +1854,18 @@ int Host::l_SetDrawColor(lua_State* L) {
         }
     }
     return 0;
+}
+int Host::l_GetDrawColor(lua_State* L) {
+    if (!current) {
+        lua_pushnumber(L, 1.0); lua_pushnumber(L, 1.0);
+        lua_pushnumber(L, 1.0); lua_pushnumber(L, 1.0);
+        return 4;
+    }
+    lua_pushnumber(L, current->drawColor.r);
+    lua_pushnumber(L, current->drawColor.g);
+    lua_pushnumber(L, current->drawColor.b);
+    lua_pushnumber(L, current->drawColor.a);
+    return 4;
 }
 int Host::l_SetDrawLayer(lua_State* L) {
     if (!current) {

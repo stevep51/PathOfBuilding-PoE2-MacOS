@@ -18,7 +18,7 @@ local m_pi = math.pi
 -- (native host, packaging, bug fixes) that share the same upstream engine
 -- version (launch.versionNumber). When bumping, also update CFBundleVersion in
 -- macos/Info.plist.in. See RELEASE.md ("Versioning").
-local macPortBuild = 1
+local macPortBuild = 2
 
 LoadModule("GameVersions")
 LoadModule("Modules/Common")
