@@ -667,22 +667,46 @@ function ImportTabClass:ImportQuestRewardConfig(questStats)
 		return out
 	end
 
-	-- Ensure all required lines exist, then remove them so they can't match again
+	-- Ensure all required lines exist, then remove them so they can't match again.
+	-- The PoE2 API aggregates quest rewards of the same stat type into a single
+	-- total (e.g. two "+30 to Spirit" quests appear as "+60 to Spirit"). For
+	-- numeric flat bonuses we therefore also accept an aggregated API line whose
+	-- value is >= the individual quest value, without consuming that line so that
+	-- multiple quests can match the same aggregate.
 	local function matchQuest(requiredLines)
 		local indices = {}
 		for _, needed in ipairs(requiredLines) do
 			local found
+			-- First try exact match (consume the line).
 			for idx, line in ipairs(statLines) do
 				if line == needed then
 					found = idx
 					break
 				end
 			end
-			if not found then
-				return false
+			if found then
+				t_insert(indices, found)
+			else
+				-- Fallback: check whether the API has an aggregated numeric stat
+				-- that covers this quest reward (e.g. "+60 to spirit" covers "+30
+				-- to spirit"). Extract "+<N> to <stat>" pattern and compare.
+				local neededVal, neededStat = needed:match("^%+(%d+) to (.+)$")
+				if neededVal then
+					neededVal = tonumber(neededVal)
+					for _, line in ipairs(statLines) do
+						local lineVal, lineStat = line:match("^%+(%d+) to (.+)$")
+						if lineVal and lineStat == neededStat and tonumber(lineVal) >= neededVal then
+							found = true  -- matched by aggregate; don't consume
+							break
+						end
+					end
+				end
+				if not found then
+					return false
+				end
 			end
-			t_insert(indices, found)
 		end
+		-- Only remove lines that were exact-matched (indices contains only exact matches)
 		table.sort(indices, function(a, b) return a > b end)
 		for _, idx in ipairs(indices) do
 			t_remove(statLines, idx)
@@ -1011,7 +1035,8 @@ function ImportTabClass:ImportItemsAndSkills(charData)
 	return charData -- For the wrapper
 end
 
-local rarityMap = { [0] = "NORMAL", "MAGIC", "RARE", "UNIQUE", [9] = "RELIC", [10] = "RELIC" }
+-- frameType 13 = Runeforged items (PoE2 0.5+); treat as RARE for import purposes
+local rarityMap = { [0] = "NORMAL", "MAGIC", "RARE", "UNIQUE", [9] = "RELIC", [10] = "RELIC", [13] = "RARE" }
 local slotMap = { ["Weapon"] = "Weapon 1", ["Offhand"] = "Weapon 2", ["Weapon2"] = "Weapon 1 Swap", ["Offhand2"] = "Weapon 2 Swap", ["Helm"] = "Helmet", ["BodyArmour"] = "Body Armour", ["Gloves"] = "Gloves", ["Boots"] = "Boots", ["Amulet"] = "Amulet", ["Ring"] = "Ring 1", ["Ring2"] = "Ring 2", ["Ring3"] = "Ring 3", ["Belt"] = "Belt", ["IncursionArmLeft"] = "Arm 2", ["IncursionArmRight"] = "Arm 1", ["IncursionLegLeft"] = "Leg 2", ["IncursionLegRight"] = "Leg 1" }
 
 function ImportTabClass:ImportItem(itemData, slotName)
