@@ -95,6 +95,7 @@ private:
     static int l_GetDPIScaleOverridePercent(lua_State* L);
     static int l_SetDPIScaleOverridePercent(lua_State* L);
     static int l_SetDrawColor(lua_State* L);
+    static int l_GetDrawColor(lua_State* L);
     static int l_SetDrawLayer(lua_State* L);
     static int l_SetViewport(lua_State* L);
     static int l_DrawImage(lua_State* L);
