@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <PoBVersion>
-	<Version number="0.16.0" />
+	<Version number="0.20.0" />
 	<Source part="default" url="https://raw.githubusercontent.com/stevep51/PathOfBuilding-PoE2-MacOS/main/" />
 	<Source part="runtime-macos-arm64" platform="macos-arm64" url="https://raw.githubusercontent.com/stevep51/PathOfBuilding-PoE2-MacOS/main/runtime-macos-arm64/" />
 	<Source part="program" url="https://raw.githubusercontent.com/stevep51/PathOfBuilding-PoE2-MacOS/main/src/" />

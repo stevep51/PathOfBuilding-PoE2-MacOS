@@ -453,8 +453,11 @@ bool sourceRectForImage(
 
     if (image->stackedAtlas && isStackIndexDraw(tcLeft, tcTop, tcRight, tcBottom)) {
         const int index = std::max(0, static_cast<int>(tcLeft) - 1);
-        src.x = 0.0f;
-        src.y = static_cast<float>(index * image->cellHeight);
+        const int cols = std::max(1, image->atlasWidth / std::max(1, image->cellWidth));
+        const int col = index % cols;
+        const int row = index / cols;
+        src.x = static_cast<float>(col * image->cellWidth);
+        src.y = static_cast<float>(row * image->cellHeight);
         src.w = static_cast<float>(image->cellWidth);
         src.h = static_cast<float>(image->cellHeight);
         return true;
@@ -493,10 +496,13 @@ void stackIndexTexCoords(NativeImage* image, float stackIndex, float& s1, float&
     const int index = std::max(0, static_cast<int>(stackIndex) - 1);
     const float atlasW = static_cast<float>(image->atlasWidth);
     const float atlasH = static_cast<float>(image->atlasHeight);
-    const float left = 0.0f;
-    const float right = static_cast<float>(image->cellWidth) / atlasW;
-    const float top = static_cast<float>(index * image->cellHeight) / atlasH;
-    const float bottom = static_cast<float>((index + 1) * image->cellHeight) / atlasH;
+    const int cols = std::max(1, image->atlasWidth / std::max(1, image->cellWidth));
+    const int col = index % cols;
+    const int row = index / cols;
+    const float left = static_cast<float>(col * image->cellWidth) / atlasW;
+    const float right = static_cast<float>((col + 1) * image->cellWidth) / atlasW;
+    const float top = static_cast<float>(row * image->cellHeight) / atlasH;
+    const float bottom = static_cast<float>((row + 1) * image->cellHeight) / atlasH;
     s1 = left;
     t1 = top;
     s2 = right;
@@ -1649,8 +1655,19 @@ void Host::callMainObject(const char* method) {
         return;
     }
     lua_pushvalue(L, -2);
-    if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
-        std::fprintf(stderr, "In %s: %s\n", method, lua_tostring(L, -1));
+    try {
+        if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
+            std::fprintf(stderr, "In '%s': %s\n", method, lua_tostring(L, -1));
+            lua_pop(L, 1);
+        }
+    } catch (const std::bad_alloc& e) {
+        std::fprintf(stderr, "In '%s': std::bad_alloc (out of memory): %s\n", method, e.what());
+        lua_pop(L, 1);
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "In '%s': std::exception: %s\n", method, e.what());
+        lua_pop(L, 1);
+    } catch (...) {
+        std::fprintf(stderr, "In '%s': unknown C++ exception\n", method);
         lua_pop(L, 1);
     }
     lua_pop(L, 1);
@@ -1916,12 +1933,21 @@ int Host::l_DrawImage(lua_State* L) {
     if (image && image->texture) {
         SDL_FRect src{};
         bool hasSrc = false;
-        if (lua_gettop(L) >= 9 && !lua_isnil(L, 6)) {
+        const int top = lua_gettop(L);
+        if (top >= 9 && !lua_isnil(L, 6)) {
+            // Legacy 4-coord call: handle, dx, dy, dw, dh, tcL, tcT, tcR, tcB.
             float tcLeft = static_cast<float>(luaL_optnumber(L, 6, 0.0));
             float tcTop = static_cast<float>(luaL_optnumber(L, 7, 0.0));
             float tcRight = static_cast<float>(luaL_optnumber(L, 8, 1.0));
             float tcBottom = static_cast<float>(luaL_optnumber(L, 9, 1.0));
             if (sourceRectForImage(image, tcLeft, tcTop, tcRight, tcBottom, src)) {
+                hasSrc = true;
+            }
+        } else if (image->stackedAtlas && top >= 6 && lua_isnumber(L, 6)) {
+            // PoE 0.5+ tree convention: a single trailing argument is the
+            // 1-based array-layer/cell index into a stacked-atlas texture.
+            const float tcLeft = static_cast<float>(lua_tonumber(L, 6));
+            if (sourceRectForImage(image, tcLeft, 0.0f, 1.0f, 1.0f, src)) {
                 hasSrc = true;
             }
         }
@@ -1954,7 +1980,9 @@ int Host::l_DrawImageQuad(lua_State* L) {
     }
     const bool requestedImage = lua_istable(L, 1);
     NativeImage* image = imageFromLua(L, 1);
-    if (image && image->texture && lua_gettop(L) >= 16) {
+    const int qtop = lua_gettop(L);
+    bool drewTextured = false;
+    if (image && image->texture && qtop >= 16) {
         float s1 = static_cast<float>(luaL_optnumber(L, 10, 0.0));
         float t1 = static_cast<float>(luaL_optnumber(L, 11, 0.0));
         float s2 = static_cast<float>(luaL_optnumber(L, 12, 0.0));
@@ -1978,7 +2006,23 @@ int Host::l_DrawImageQuad(lua_State* L) {
         std::memcpy(cmd.verts, vertices, sizeof(vertices));
         cmd.texture = image->texture;
         cmd.geomTextured = true;
-    } else if (!requestedImage) {
+        drewTextured = true;
+    } else if (image && image->texture && image->stackedAtlas && qtop >= 10 && lua_isnumber(L, 10)) {
+        // PoE 0.5+ tree convention: handle, 8 vertex coords, 1-based array index.
+        float s1, t1, s2, t2, s3, t3, s4, t4;
+        const float idx = static_cast<float>(lua_tonumber(L, 10));
+        stackIndexTexCoords(image, idx, s1, t1, s2, t2, s3, t3, s4, t4);
+        vertices[0].tex_coord.x = s1; vertices[0].tex_coord.y = t1;
+        vertices[1].tex_coord.x = s2; vertices[1].tex_coord.y = t2;
+        vertices[2].tex_coord.x = s3; vertices[2].tex_coord.y = t3;
+        vertices[3].tex_coord.x = s4; vertices[3].tex_coord.y = t4;
+        DrawCommand& cmd = current->newDrawCommand(DrawCommand::Type::Geometry);
+        std::memcpy(cmd.verts, vertices, sizeof(vertices));
+        cmd.texture = image->texture;
+        cmd.geomTextured = true;
+        drewTextured = true;
+    }
+    if (!drewTextured && !requestedImage) {
         DrawCommand& cmd = current->newDrawCommand(DrawCommand::Type::Geometry);
         std::memcpy(cmd.verts, vertices, sizeof(vertices));
         cmd.geomTextured = false;

@@ -121,7 +121,7 @@ local use4kIfPossible = false
 local idPassiveTree = 'Default'
 -- Find a way to get version
 local basePath = GetWorkDir() .. "/../TreeData/"
-local version = "0_4"
+local version = "0_5"
 local path = basePath .. version .. "/"
 local fileTree = path .. "tree.lua"
 
@@ -726,6 +726,12 @@ for i, group in ipairs(psg.groups) do
 				addToSheet(getSheet("skills-disabled"), passiveRow.Icon, "normalInactive", commonMetadata(nil))
 			end
 
+			-- Sinister jewel support
+			if passiveRow.JewelSocket and passiveRow.AnointOnly then
+				node["aliasPassiveSocket"] = passiveRow.Id
+				node["noRadius"] = true
+			end
+
 			-- Ascendancy
 			if passiveRow.Ascendancy ~= nil then
 				groupIsAscendancy = true
@@ -800,9 +806,9 @@ for i, group in ipairs(psg.groups) do
 			end
 
 			-- Enable Ascendancy Unlock
-			if passiveRow.AscendancyUnlock ~= nil then
+			if passiveRow.ConstraintNode ~= nil and #passiveRow.ConstraintNode > 0 then
 				node.unlockConstraint = {
-					ascendancy = passiveRow.AscendancyUnlock.Name,
+					ascendancy = passiveRow.AscendancyUnlock and passiveRow.AscendancyUnlock.Name or nil,
 					nodes = {}
 				}
 

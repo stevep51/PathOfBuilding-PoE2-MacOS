@@ -35,6 +35,7 @@ struct DdsHeaderInfo {
     size_t dataOffset = 0;
     size_t dataSize = 0;
     int rowPitch = 0;
+    int arraySize = 1; // DX10 texture-array slice count (PoE 0.5+ tree sheets)
 };
 
 uint32_t readU32(const std::vector<unsigned char>& data, size_t offset) {
@@ -53,8 +54,9 @@ bool parseDdsHeader(const std::vector<unsigned char>& data, DdsHeaderInfo& info)
         return false;
     }
 
-    info.cellWidth = static_cast<int>(readU32(data, 12));
-    info.cellHeight = static_cast<int>(readU32(data, 16));
+    // DDS header: dwHeight at offset 12, dwWidth at offset 16.
+    info.cellHeight = static_cast<int>(readU32(data, 12));
+    info.cellWidth  = static_cast<int>(readU32(data, 16));
     const uint32_t linearSize = readU32(data, 20);
     const uint32_t fourCc = readU32(data, 84);
 
@@ -65,6 +67,9 @@ bool parseDdsHeader(const std::vector<unsigned char>& data, DdsHeaderInfo& info)
         }
         const uint32_t dxgiFormat = readU32(data, 128);
         info.dataOffset = 148;
+        // DX10 extended header: arraySize is at offset 140.
+        const uint32_t arraySize = readU32(data, 140);
+        info.arraySize = arraySize > 0 ? static_cast<int>(arraySize) : 1;
         if (dxgiFormat == kDxgiBc1Unorm) {
             info.format = DdsFormat::Bc1;
         } else if (dxgiFormat == kDxgiBc7Unorm) {
@@ -280,6 +285,79 @@ bool decodeDdsBytes(const std::vector<unsigned char>& ddsData, DecodedDds& out) 
     DdsHeaderInfo info;
     if (!parseDdsHeader(ddsData, info)) {
         return false;
+    }
+
+    // PoE 0.5+ tree sprite sheets ship as DX10 texture arrays: each array slice
+    // is one cell (cellWidth x cellHeight) stored as its own full mip chain. The
+    // Lua tree code addresses cells by 1-based array index. We flatten the array
+    // into a single atlas the host can sample by index. A pure vertical strip
+    // (cellHeight * arraySize) would exceed the GPU max texture size for large
+    // arrays, so lay the cells out in a grid; the host's index->rect math derives
+    // the column count from atlasWidth / cellWidth and stays consistent.
+    if (info.arraySize > 1) {
+        const int cellW = info.cellWidth;
+        const int cellH = info.cellHeight;
+        const size_t sliceMip0 = mip0CompressedSize(cellW, cellH, info.format);
+        const size_t sliceChain = compressedMipChainSize(cellW, cellH, info.format);
+        if (cellW <= 0 || cellH <= 0 || sliceMip0 == 0 || sliceChain < sliceMip0) {
+            return false;
+        }
+        // Last slice only needs its mip0 present, not its trailing mips.
+        const size_t required = sliceChain * (static_cast<size_t>(info.arraySize) - 1) + sliceMip0;
+        if (info.dataSize < required) {
+            return false;
+        }
+
+        // Choose a grid that keeps both atlas dimensions within the GPU limit.
+        constexpr int kMaxDim = 16383; // stay strictly under Metal's max texture size
+        const int maxCols = std::max(1, kMaxDim / cellW);
+        const int maxRows = std::max(1, kMaxDim / cellH);
+        int cols = std::min(maxCols, info.arraySize);
+        int rows = (info.arraySize + cols - 1) / cols;
+        if (rows > maxRows) {
+            rows = maxRows;
+            cols = (info.arraySize + rows - 1) / rows;
+        }
+        if (cols > maxCols || static_cast<long long>(cols) * rows < info.arraySize) {
+            return false; // array too large to fit in one atlas texture
+        }
+
+        const int atlasW = cols * cellW;
+        const int atlasH = rows * cellH;
+        const unsigned char* base = ddsData.data() + info.dataOffset;
+
+        out.rgba.assign(static_cast<size_t>(atlasW) * atlasH * 4, 0);
+        out.cellWidth = cellW;
+        out.cellHeight = cellH;
+        out.atlasWidth = atlasW;
+        out.atlasHeight = atlasH;
+        out.stackedAtlas = true;
+
+        std::vector<unsigned char> cell(static_cast<size_t>(cellW) * cellH * 4, 0);
+        for (int i = 0; i < info.arraySize; ++i) {
+            const unsigned char* sliceMip0Ptr = base + static_cast<size_t>(i) * sliceChain;
+            std::fill(cell.begin(), cell.end(), static_cast<unsigned char>(0));
+            if (info.format == DdsFormat::Bc1) {
+                decodeBc1Region(sliceMip0Ptr, cellW, cellH, cell);
+            } else if (info.format == DdsFormat::Bc7) {
+                decodeBc7Region(sliceMip0Ptr, cellW, cellH, cell);
+            } else {
+                // Rgba8: raw RGBA pixels, rowPitch may include padding
+                const int rowPitch = info.rowPitch > 0 ? info.rowPitch : cellW * 4;
+                decodeRgba8Region(sliceMip0Ptr, cellW, cellH, rowPitch, cell);
+            }
+            const int col = i % cols;
+            const int row = i / cols;
+            const int dstX = col * cellW;
+            const int dstY = row * cellH;
+            for (int y = 0; y < cellH; ++y) {
+                std::memcpy(
+                    out.rgba.data() + (static_cast<size_t>(dstY + y) * atlasW + dstX) * 4,
+                    cell.data() + static_cast<size_t>(y) * cellW * 4,
+                    static_cast<size_t>(cellW) * 4);
+            }
+        }
+        return true;
     }
 
     int atlasWidth = 0;
