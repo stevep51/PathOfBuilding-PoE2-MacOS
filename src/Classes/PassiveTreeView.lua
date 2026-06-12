@@ -763,7 +763,7 @@ function PassiveTreeViewClass:Draw(build, viewPort, inputEvents)
 		local node2 = spec.nodes[connector.nodeId2]
 		if not node1.unlockConstraint and not node2.unlockConstraint  then
 			renderConnector(connector)
-		elseif checkUnlockConstraints(build, node1) and checkUnlockConstraints(build, node2) then
+		elseif self:checkUnlockConstraints(build, node1) and self:checkUnlockConstraints(build, node2) then
 			renderConnector(connector)
 		end
 	end
@@ -809,9 +809,8 @@ function PassiveTreeViewClass:Draw(build, viewPort, inputEvents)
 	end
 
 	-- Update cached node data
-	if self.searchStrCached ~= self.searchStr or self.searchNeedsForceUpdate == true then
+	if self.searchStrCached ~= self.searchStr then
 		self.searchStrCached = self.searchStr
-		self.searchNeedsForceUpdate = false
 
 		local function prepSearch(search)
 			search = search:lower()
@@ -831,7 +830,7 @@ function PassiveTreeViewClass:Draw(build, viewPort, inputEvents)
 		self.searchParams = prepSearch(self.searchStr)
 
 		for nodeId, node in pairs(spec.nodes) do
-			self.searchStrResults[nodeId] = #self.searchParams > 0 and self:DoesNodeMatchSearchParams(node)
+			self.searchStrResults[nodeId] = #self.searchParams > 0 and self:DoesNodeMatchSearchParams(build, node)
 		end
 	end
 
@@ -913,8 +912,9 @@ function PassiveTreeViewClass:Draw(build, viewPort, inputEvents)
 
 				local socket, jewel = build.itemsTab:GetSocketAndJewelForNodeID(nodeId)
 				if isAlloc and jewel then
-					if jewel.rarity == "UNIQUE" and jewel.title ~= "Grand Spectrum" then
-						overlay = jewel.title
+					if jewel.rarity == "UNIQUE" then
+						local hasUniqueJewelArt = tree.ddsMap[jewel.title] or tree.assets[jewel.title] or tree.spriteMap[jewel.title]
+						overlay = hasUniqueJewelArt and jewel.title or jewel.baseName
 					else
 						overlay = jewel.baseName
 					end
@@ -923,7 +923,7 @@ function PassiveTreeViewClass:Draw(build, viewPort, inputEvents)
 				-- This is the icon that appears in the center of many groups
 				if not node.unlockConstraint then
 					base = tree:GetAssetByName(node.activeEffectImage)
-				elseif checkUnlockConstraints(build, node) then
+				elseif self:checkUnlockConstraints(build, node) then
 					base = tree:GetAssetByName(node.activeEffectImage)
 				end
 				SetDrawLayer(nil, 15)
@@ -933,7 +933,7 @@ function PassiveTreeViewClass:Draw(build, viewPort, inputEvents)
 				if node.activeEffectImage then
 					if not node.unlockConstraint then
 						effect = tree:GetAssetByName(node.activeEffectImage)
-					elseif checkUnlockConstraints(build, node) then
+					elseif self:checkUnlockConstraints(build, node) then
 						effect = tree:GetAssetByName(node.activeEffectImage)
 					end
 				end
@@ -941,7 +941,7 @@ function PassiveTreeViewClass:Draw(build, viewPort, inputEvents)
 				if not node.unlockConstraint then
 					base = tree:GetAssetByName(node.icon)
 					overlay = node.overlay[state]
-				elseif checkUnlockConstraints(build, node) then
+				elseif self:checkUnlockConstraints(build, node) then
 					base = tree:GetAssetByName(node.icon)
 					overlay = node.overlay[state]
 				end
@@ -1157,7 +1157,7 @@ function PassiveTreeViewClass:Draw(build, viewPort, inputEvents)
 			end
 
 		end
-		if node == hoverNode and (not node.unlockConstraint or checkUnlockConstraints(build, node)) and (node.type ~= "Socket" or not IsKeyDown("SHIFT")) and not IsKeyDown("CTRL") and not main.popups[1] then
+		if node == hoverNode and (not node.unlockConstraint or self:checkUnlockConstraints(build, node)) and (node.type ~= "Socket" or not IsKeyDown("SHIFT")) and not IsKeyDown("CTRL") and not main.popups[1] then
 			-- Draw tooltip
 			SetDrawLayer(nil, 100)
 			local size = m_floor(node.size * scale)
@@ -1442,8 +1442,12 @@ function PassiveTreeViewClass:Focus(x, y, viewPort, build)
 	self.zoomY = -y * scale
 end
 
-function PassiveTreeViewClass:DoesNodeMatchSearchParams(node)
+function PassiveTreeViewClass:DoesNodeMatchSearchParams(build, node)
 	if node.type == "ClassStart" or node.type == "OnlyImage" then
+		return
+	end
+
+	if node.unlockConstraint and not self:checkUnlockConstraints(build, node) then
 		return
 	end
 
@@ -2092,7 +2096,7 @@ function PassiveTreeViewClass:LessLuminance()
 end
 
 -- Checks if a node has unlockConstraint and if that node is allocated
-function checkUnlockConstraints(build, node)
+function PassiveTreeViewClass:checkUnlockConstraints(build, node)
 	if unseenPathHover and node.unlockConstraint and node.unlockConstraint.nodes[1] == 5571 then
 		return true
 	end
