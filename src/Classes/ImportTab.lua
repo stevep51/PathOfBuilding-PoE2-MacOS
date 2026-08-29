@@ -1145,6 +1145,23 @@ function ImportTabClass:ImportItemsAndSkills(charData)
 	return charData -- For the wrapper
 end
 
+-- Mod arrays may hold plain strings or, since API 3.29, ItemMod objects with
+-- the text in a description field and per-mod flags alongside it.
+function ImportTabClass:ImportModLines(itemMods, modLines, flags)
+	for _, itemMod in ipairs(itemMods) do
+		local modText = type(itemMod) == "table" and (itemMod.description or "") or itemMod
+		for line in modText:gmatch("[^\n]+") do
+			local modList, extra = modLib.parseMod(line)
+			local modLine = { line = line, extra = extra, mods = modList or { },
+				fractured = itemMod.fractured, crafted = itemMod.crafted, mutated = itemMod.mutated }
+			for flag in pairs(flags or { }) do
+				modLine[flag] = true
+			end
+			t_insert(modLines, modLine)
+		end
+	end
+end
+
 local rarityMap = { [0] = "NORMAL", "MAGIC", "RARE", "UNIQUE", [9] = "RELIC", [10] = "RELIC", [13] = "RARE", [14] = "UNIQUE" }
 local slotMap = { ["Weapon"] = "Weapon 1", ["Offhand"] = "Weapon 2", ["Weapon2"] = "Weapon 1 Swap", ["Offhand2"] = "Weapon 2 Swap", ["Helm"] = "Helmet", ["BodyArmour"] = "Body Armour", ["Gloves"] = "Gloves", ["Boots"] = "Boots", ["Amulet"] = "Amulet", ["Ring"] = "Ring 1", ["Ring2"] = "Ring 2", ["Ring3"] = "Ring 3", ["Belt"] = "Belt", ["IncursionArmLeft"] = "Arm 2", ["IncursionArmRight"] = "Arm 1", ["IncursionLegLeft"] = "Leg 2", ["IncursionLegRight"] = "Leg 1" }
 
@@ -1307,73 +1324,28 @@ function ImportTabClass:ImportItem(itemData, slotName)
 	item.implicitModLines = { }
 	item.explicitModLines = { }
 	if itemData.enchantMods then
-		for _, line in ipairs(itemData.enchantMods) do
-			for line in line:gmatch("[^\n]+") do
-				local modList, extra = modLib.parseMod(line)
-				t_insert(item.enchantModLines, { line = line, extra = extra, mods = modList or { }, enchant = true })
-			end
-		end
+		self:ImportModLines(itemData.enchantMods, item.enchantModLines, { enchant = true })
 	end
 	if itemData.runeMods then
-		for _, line in ipairs(itemData.runeMods) do
-			for line in line:gmatch("[^\n]+") do
-				local modList, extra = modLib.parseMod(line)
-				t_insert(item.runeModLines, { line = line, extra = extra, mods = modList or { }, enchant = true, rune = true })
-			end
-		end
+		self:ImportModLines(itemData.runeMods, item.runeModLines, { enchant = true, rune = true })
 	end
 	if itemData.implicitMods then
-		for _, itemMod in ipairs(itemData.implicitMods) do
-			local modLine = itemMod.description or itemMod
-			for line in modLine:gmatch("[^\n]+") do
-				local modList, extra = modLib.parseMod(line)
-				t_insert(item.implicitModLines, { line = line, extra = extra, mods = modList or { } })
-			end
-		end
+		self:ImportModLines(itemData.implicitMods, item.implicitModLines)
 	end
 	if itemData.fracturedMods then
-		for _, line in ipairs(itemData.fracturedMods) do
-			for line in line:gmatch("[^\n]+") do
-				local modList, extra = modLib.parseMod(line)
-				t_insert(item.explicitModLines, { line = line, extra = extra, mods = modList or { }, fractured = true })
-			end
-		end
+		self:ImportModLines(itemData.fracturedMods, item.explicitModLines, { fractured = true })
 	end
 	if itemData.explicitMods then
-		for _, itemMod in ipairs(itemData.explicitMods) do
-			local modLine = itemMod.description or itemMod
-			for line in modLine:gmatch("[^\n]+") do
-				local modList, extra = modLib.parseMod(line)
-				t_insert(item.explicitModLines, { line = line, extra = extra, mods = modList or { },
-					fractured = itemMod.fractured,
-					crafted = itemMod.crafted,
-					mutated = itemMod.mutated })
-			end
-		end
+		self:ImportModLines(itemData.explicitMods, item.explicitModLines)
 	end
 	if itemData.desecratedMods then
-		for _, line in ipairs(itemData.desecratedMods) do
-			for line in line:gmatch("[^\n]+") do
-				local modList, extra = modLib.parseMod(line)
-				t_insert(item.explicitModLines, { line = line, extra = extra, mods = modList or { }, desecrated = true })
-			end
-		end
+		self:ImportModLines(itemData.desecratedMods, item.explicitModLines, { desecrated = true })
 	end
 	if itemData.mutatedMods then
-		for _, line in ipairs(itemData.mutatedMods) do
-			for line in line:gmatch("[^\n]+") do
-				local modList, extra = modLib.parseMod(line)
-				t_insert(item.explicitModLines, { line = line, extra = extra, mods = modList or { }, mutated = true })
-			end
-		end
+		self:ImportModLines(itemData.mutatedMods, item.explicitModLines, { mutated = true })
 	end
 	if itemData.craftedMods then
-		for _, line in ipairs(itemData.craftedMods) do
-			for line in line:gmatch("[^\n]+") do
-				local modList, extra = modLib.parseMod(line)
-				t_insert(item.explicitModLines, { line = line, extra = extra, mods = modList or { }, crafted = true })
-			end
-		end
+		self:ImportModLines(itemData.craftedMods, item.explicitModLines, { crafted = true })
 	end
 
 	if itemData.grantedSkills then
