@@ -17,6 +17,17 @@ jobs:
         run: tools/macos/build_app.sh
       - name: Package app
         run: tools/macos/package_app.sh
+      - name: Verify packaged app
+        run: |
+          set -eu
+          app="dist/macos-arm64/Path of Building (PoE2).app"
+          plutil -lint macos/Info.plist.in
+          # The bundle must carry its own Lua sources and a platform-tagged
+          # manifest, otherwise the shipped app falls back to dev mode
+          # (repo-relative sources, Dev Mode banner, data stored in-bundle).
+          test -f "$app/Contents/Resources/src/Launch.lua"
+          grep -q 'platform="macos-arm64"' "$app/Contents/Resources/manifest.xml"
+          codesign --verify --deep --strict "$app"
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
