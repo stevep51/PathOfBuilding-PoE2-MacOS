@@ -30,6 +30,42 @@ The package step creates `dist/macos-arm64/PathOfBuilding-PoE2-macos-arm64.zip`
 and refreshes `runtime-macos-arm64/` so `update_manifest.py` can include the
 native runtime as `platform="macos-arm64"`.
 
+It also makes the bundle self-contained. The build links SDL3, LuaJIT and zstd
+from Homebrew, so the linked executable records absolute install names such as
+`/opt/homebrew/opt/sdl3/lib/libSDL3.0.dylib`; a machine without those formulae
+would abort at launch with a dyld `Library not loaded` error. Packaging
+therefore:
+
+1. copies every non-system dependency into `Contents/Frameworks/`, walking
+   `otool -L` recursively and resolving `@loader_path` / `@rpath` install
+   names so library-to-library references are followed too,
+2. rewrites the references to `@rpath` and adds
+   `@executable_path/../Frameworks`,
+3. deletes the absolute Homebrew `LC_RPATH` entries CMake inherits from
+   pkg-config -- dyld searches those first, so leaving them in would let a
+   Homebrew copy win over the bundled one on any machine that has it,
+4. re-signs ad hoc, since editing Mach-O headers invalidates the signature and
+   an invalid signature is a hard launch failure on Apple Silicon, and
+5. fails the build if any `/opt/homebrew` or `/usr/local` path survives in the
+   bundle's load commands.
+
+Homebrew is still required to *build*; it is no longer required to *run* a
+packaged app.
+
+## Verify a package
+
+```bash
+tools/macos/test_package.sh
+```
+
+Checks that nothing in the bundle references `/opt/homebrew` or `/usr/local`,
+that every non-system dependency resolves inside `Contents/Frameworks`, that
+the rpath set is exactly `@executable_path/../Frameworks`, that the signature
+survives the zip round-trip, and that the app launches and maps its libraries
+from inside the bundle. The launch check needs a window server, so it is
+skipped under CI unless `POB_TEST_LAUNCH=1` is set. CI runs this on every
+build and before every release.
+
 ## Tests
 
 The existing calculation and feature tests remain the authority for parity:

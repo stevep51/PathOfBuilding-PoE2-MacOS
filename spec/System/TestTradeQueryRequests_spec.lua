@@ -228,4 +228,75 @@ Strict-Transport-Security: max-age=63115200; includeSubDomains; preload]]
 			requests.FetchResultBlock = orig_fetchBlock
 		end)
 	end)
+
+	-- Trade results feed each mod straight into escapeGGGString, which calls
+	-- :gsub on it. If the trade API ever follows the character API and returns
+	-- ItemMod objects instead of plain strings (the change behind the
+	-- ImportTab.lua gmatch crash), an unnormalised entry would abort the whole
+	-- search. NormalizeModLines is the guard.
+	describe("NormalizeModLines", function()
+		-- Pass: plain strings are passed through untouched
+		-- Fail: the existing, overwhelmingly common case regressed
+		it("passes plain strings through", function()
+			local lines = requests:NormalizeModLines({ "+10 to Strength", "+20 to Dexterity" })
+			assert.are.same({ "+10 to Strength", "+20 to Dexterity" }, lines)
+		end)
+
+		-- Pass: object-shaped mods are unwrapped via .description
+		-- Fail: the object reaches escapeGGGString and raises
+		--       "attempt to call method 'gsub' (a nil value)"
+		it("unwraps ItemMod objects", function()
+			local lines = requests:NormalizeModLines({
+				{ description = "+10 to Strength" },
+				{ description = "+20 to Dexterity", crafted = true },
+			})
+			assert.are.same({ "+10 to Strength", "+20 to Dexterity" }, lines)
+		end)
+
+		-- Pass: both shapes survive in one array
+		-- Fail: a mixed response drops mods or errors
+		it("handles strings and objects in the same array", function()
+			local lines = requests:NormalizeModLines({
+				"+10 to Strength",
+				{ description = "+20 to Dexterity" },
+			})
+			assert.are.same({ "+10 to Strength", "+20 to Dexterity" }, lines)
+		end)
+
+		-- Pass: embedded newlines become separate lines
+		-- Fail: a multi-line mod is emitted as one raw line, so per-array
+		--       prefixes like {enchant} only reach the first line and the
+		--       "Implicits: N" count disagrees with the lines emitted
+		it("splits embedded newlines", function()
+			local lines = requests:NormalizeModLines({ { description = "line one\nline two" } })
+			assert.are.same({ "line one", "line two" }, lines)
+		end)
+
+		-- Pass: entries with no usable text are dropped
+		-- Fail: a blank raw line is emitted, truncating the parsed item
+		it("drops entries with no text", function()
+			local lines = requests:NormalizeModLines({
+				{ },
+				{ description = "" },
+				{ description = "+10 to Strength" },
+			})
+			assert.are.same({ "+10 to Strength" }, lines)
+		end)
+
+		-- Pass: a missing array is treated as empty
+		-- Fail: nil arrives from the API and errors before the item is built
+		it("treats a missing array as empty", function()
+			assert.are.same({ }, requests:NormalizeModLines(nil))
+		end)
+
+		-- Pass: the implicit count matches the lines actually emitted
+		-- Fail: "Implicits: N" disagrees with the raw lines and the item text
+		--       parses with mods in the wrong section
+		it("keeps the implicit count consistent with emitted lines", function()
+			local enchantMods = requests:NormalizeModLines({ { description = "Enchant one" } })
+			local runeMods = requests:NormalizeModLines({ "Rune one\nRune two" })
+			local implicitMods = requests:NormalizeModLines({ { }, { description = "Implicit one" } })
+			assert.are.equal(4, #enchantMods + #runeMods + #implicitMods)
+		end)
+	end)
 end)

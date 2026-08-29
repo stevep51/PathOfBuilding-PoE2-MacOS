@@ -83,7 +83,7 @@ private:
     void callMainObject(const char* method);
     void callMainObjectKey(const char* method, const std::string& key, bool doubleClick = false);
     void updateLogicalPresentation();
-    void setSearchPaths();
+    bool setSearchPaths();
 
     static int l_SetMainObject(lua_State* L);
     static int l_GetTime(lua_State* L);

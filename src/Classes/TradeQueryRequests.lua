@@ -18,6 +18,29 @@ local TradeQueryRequestsClass = newClass("TradeQueryRequests", function(self, ra
 	self.hostName = "https://www.pathofexile.com/"
 end)
 
+-- Trade results deliver each item mod as a plain string, but the character API
+-- switched to ItemMod objects that carry the text in a `description` field
+-- (see ImportTabClass:ImportModLines). Normalise defensively: an object-shaped
+-- entry reaching escapeGGGString in FetchResultBlock would raise "attempt to
+-- call method 'gsub' (a nil value)" and abort the whole trade search. Embedded
+-- newlines are split out so that per-array prefixes such as {enchant} apply to
+-- every line, and so the implicit count matches the number of lines actually
+-- emitted.
+---@param itemMods table|nil array of plain strings and/or ItemMod objects
+---@return table array of plain strings
+function TradeQueryRequestsClass:NormalizeModLines(itemMods)
+	local lines = { }
+	for _, itemMod in ipairs(itemMods or { }) do
+		local text = type(itemMod) == "table" and itemMod.description or itemMod
+		if type(text) == "string" then
+			for line in text:gmatch("[^\n]+") do
+				table.insert(lines, line)
+			end
+		end
+	end
+	return lines
+end
+
 ---Main routine for processing request queue
 --- @param onRateLimit fun(integer)?
 function TradeQueryRequestsClass:ProcessQueue(onRateLimit)
@@ -387,14 +410,15 @@ function TradeQueryRequestsClass:FetchResultBlock(url, callback)
 					t_insert(rawLines, "Limited to: " .. limit)
 				end
 
-				-- ensure these fields are initialised
-				item.enchantMods = item.enchantMods or { }
-				item.fracturedMods = item.fracturedMods or { }
-				item.desecratedMods = item.desecratedMods or { }
-				item.craftedMods = item.craftedMods or { }
-				item.runeMods = item.runeMods or { }
-				item.implicitMods = item.implicitMods or { }
-				item.explicitMods = item.explicitMods or { }
+				-- ensure these fields are initialised, and that every entry
+				-- is a plain string
+				item.enchantMods = self:NormalizeModLines(item.enchantMods)
+				item.fracturedMods = self:NormalizeModLines(item.fracturedMods)
+				item.desecratedMods = self:NormalizeModLines(item.desecratedMods)
+				item.craftedMods = self:NormalizeModLines(item.craftedMods)
+				item.runeMods = self:NormalizeModLines(item.runeMods)
+				item.implicitMods = self:NormalizeModLines(item.implicitMods)
+				item.explicitMods = self:NormalizeModLines(item.explicitMods)
 
 				t_insert(rawLines, "Implicits: " .. (#item.enchantMods + #item.runeMods + #item.implicitMods))
 				for _, modLine in ipairs(item.enchantMods) do
