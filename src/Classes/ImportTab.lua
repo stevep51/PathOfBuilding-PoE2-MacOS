@@ -1323,8 +1323,9 @@ function ImportTabClass:ImportItem(itemData, slotName)
 		end
 	end
 	if itemData.implicitMods then
-		for _, line in ipairs(itemData.implicitMods) do
-			for line in line:gmatch("[^\n]+") do
+		for _, itemMod in ipairs(itemData.implicitMods) do
+			local modLine = itemMod.description or itemMod
+			for line in modLine:gmatch("[^\n]+") do
 				local modList, extra = modLib.parseMod(line)
 				t_insert(item.implicitModLines, { line = line, extra = extra, mods = modList or { } })
 			end
@@ -1339,10 +1340,14 @@ function ImportTabClass:ImportItem(itemData, slotName)
 		end
 	end
 	if itemData.explicitMods then
-		for _, line in ipairs(itemData.explicitMods) do
-			for line in line:gmatch("[^\n]+") do
+		for _, itemMod in ipairs(itemData.explicitMods) do
+			local modLine = itemMod.description or itemMod
+			for line in modLine:gmatch("[^\n]+") do
 				local modList, extra = modLib.parseMod(line)
-				t_insert(item.explicitModLines, { line = line, extra = extra, mods = modList or { } })
+				t_insert(item.explicitModLines, { line = line, extra = extra, mods = modList or { },
+					fractured = itemMod.fractured,
+					crafted = itemMod.crafted,
+					mutated = itemMod.mutated })
 			end
 		end
 	end
