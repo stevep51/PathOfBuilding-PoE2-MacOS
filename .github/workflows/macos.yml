@@ -17,6 +17,22 @@ jobs:
         run: tools/macos/build_app.sh
       - name: Package app
         run: tools/macos/package_app.sh
+      - name: Verify app is self-contained
+        run: |
+          set -euo pipefail
+          app="dist/macos-arm64/Path of Building (PoE2).app"
+          binary="${app}/Contents/MacOS/PathOfBuilding-PoE2"
+          echo "== otool -L ${binary}"
+          otool -L "${binary}"
+          if otool -L "${binary}" "${app}/Contents/Frameworks/"*.dylib | grep -E '/opt/homebrew|/usr/local'; then
+            echo "error: packaged app links against Homebrew paths" >&2
+            exit 1
+          fi
+          if otool -l "${binary}" | grep -A2 LC_RPATH | grep -E '/opt/homebrew|/usr/local'; then
+            echo "error: packaged binary carries Homebrew rpaths" >&2
+            exit 1
+          fi
+          codesign --verify --deep --strict "${app}"
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
