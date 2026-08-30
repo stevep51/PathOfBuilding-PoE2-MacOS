@@ -37,6 +37,11 @@ jobs:
         run: |
           tools/macos/build_app.sh
           tools/macos/package_app.sh
+      - name: Verify packaged app
+        # Never publish a release that only runs on the build machine: without
+        # the bundled libraries the app aborts at launch on any Mac that lacks
+        # the Homebrew formulae.
+        run: tools/macos/test_package.sh
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}

@@ -697,8 +697,18 @@ bool fileExists(const fs::path& path) {
     return fs::is_regular_file(path, ec);
 }
 
+// Walk up from `start` looking for a checkout, identified by src/Launch.lua.
+// Returns an empty path when there is none, so callers can fall back or fail
+// with a message rather than proceeding with a directory that does not exist.
 fs::path findRepoRoot(fs::path start) {
-    start = fs::absolute(start);
+    if (start.empty()) {
+        return {};
+    }
+    std::error_code ec;
+    start = fs::absolute(start, ec);
+    if (ec) {
+        return {};
+    }
     for (fs::path path = start; !path.empty(); path = path.parent_path()) {
         if (fileExists(path / "src" / "Launch.lua")) {
             return path;
@@ -707,7 +717,25 @@ fs::path findRepoRoot(fs::path start) {
             break;
         }
     }
-    return start;
+    return {};
+}
+
+fs::path executableDirectory() {
+    @autoreleasepool {
+        NSString* executablePath = [[NSBundle mainBundle] executablePath];
+        if (executablePath) {
+            return fs::path([executablePath UTF8String]).parent_path();
+        }
+    }
+    return {};
+}
+
+// Startup happens before any window exists, and stderr goes nowhere when the
+// app is launched from Finder, so a bare abort leaves the user with nothing.
+// SDL is initialised before initLua, so a message box is available here.
+void reportStartupFailure(const std::string& message) {
+    std::fprintf(stderr, "%s\n", message.c_str());
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Path of Building", message.c_str(), nullptr);
 }
 
 fs::path bundleResourcesPath() {
@@ -838,7 +866,9 @@ bool Host::initLua(int argc, char** argv) {
     lua_newtable(L);
     lua_setfield(L, LUA_REGISTRYINDEX, kCallbacks);
 
-    setSearchPaths();
+    if (!setSearchPaths()) {
+        return false;
+    }
     registerPreloadModules();
     return true;
 }
@@ -1412,7 +1442,7 @@ void Host::registerPreloadModules() {
     lua_pop(L, 2);
 }
 
-void Host::setSearchPaths() {
+bool Host::setSearchPaths() {
     fs::path resources = bundleResourcesPath();
     fs::path scriptPath;
     fs::path runtimePath;
@@ -1421,12 +1451,38 @@ void Host::setSearchPaths() {
         scriptPath = resources / "src";
         runtimePath = resources / "runtime";
     } else {
-        fs::path root = findRepoRoot(fs::current_path());
+        // Development build: the .app ships no Lua, so locate the checkout it
+        // was built from. Search from the executable before the working
+        // directory -- Finder and `open` start the app in "/", which never has
+        // a checkout above it, and the resulting "/src" used to reach
+        // fs::current_path() below and abort the process on an uncaught throw.
+        fs::path root = findRepoRoot(executableDirectory());
+        if (root.empty()) {
+            std::error_code cwdEc;
+            fs::path cwd = fs::current_path(cwdEc);
+            if (!cwdEc) {
+                root = findRepoRoot(cwd);
+            }
+        }
+        if (root.empty()) {
+            reportStartupFailure(
+                "Could not find the Path of Building sources.\n\n"
+                "This build loads its Lua from the checkout it was built from, "
+                "but no src/Launch.lua was found above the application or the "
+                "working directory.");
+            return false;
+        }
         scriptPath = root / "src";
         runtimePath = root / "runtime";
     }
 
-    fs::current_path(scriptPath);
+    std::error_code ec;
+    fs::current_path(scriptPath, ec);
+    if (ec) {
+        reportStartupFailure("Could not enter the script directory:\n\n" +
+            scriptPath.string() + "\n\n" + ec.message());
+        return false;
+    }
     lua_pushstring(L, scriptPath.string().c_str());
     lua_setfield(L, LUA_REGISTRYINDEX, kScriptPath);
     lua_pushstring(L, runtimePath.string().c_str());
@@ -1442,6 +1498,7 @@ void Host::setSearchPaths() {
     lua_pushstring(L, luaCPath.c_str());
     lua_setfield(L, -2, "cpath");
     lua_pop(L, 1);
+    return true;
 }
 
 bool Host::loadLaunchScript() {

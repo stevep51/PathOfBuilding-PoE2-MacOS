@@ -17,22 +17,22 @@ jobs:
         run: tools/macos/build_app.sh
       - name: Package app
         run: tools/macos/package_app.sh
-      - name: Verify app is self-contained
+      - name: Verify packaged app
         run: |
           set -euo pipefail
           app="dist/macos-arm64/Path of Building (PoE2).app"
           binary="${app}/Contents/MacOS/PathOfBuilding-PoE2"
+          plutil -lint macos/Info.plist.in
+          # The bundle must carry its own Lua sources and a platform-tagged
+          # manifest, otherwise the shipped app falls back to dev mode
+          # (repo-relative sources, Dev Mode banner, data stored in-bundle).
+          test -f "$app/Contents/Resources/src/Launch.lua"
+          grep -q 'platform="macos-arm64"' "$app/Contents/Resources/manifest.xml"
           echo "== otool -L ${binary}"
           otool -L "${binary}"
-          if otool -L "${binary}" "${app}/Contents/Frameworks/"*.dylib | grep -E '/opt/homebrew|/usr/local'; then
-            echo "error: packaged app links against Homebrew paths" >&2
-            exit 1
-          fi
-          if otool -l "${binary}" | grep -A2 LC_RPATH | grep -E '/opt/homebrew|/usr/local'; then
-            echo "error: packaged binary carries Homebrew rpaths" >&2
-            exit 1
-          fi
-          codesign --verify --deep --strict "${app}"
+          # Self-containment, the rpath set, the zip round-trip and codesign.
+          # The launch check inside skips itself under CI (no window server).
+          tools/macos/test_package.sh
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
